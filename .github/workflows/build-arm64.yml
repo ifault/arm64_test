@@ -30,10 +30,9 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           . $HOME/.cargo/env
           rustup target add aarch64-unknown-linux-gnu          # Install pnpm
-          export SHELL=/bin/bash
-          curl -fsSL https://get.pnpm.io/install.sh | bash -
           export PATH="/root/.local/share/pnpm:$PATH"
-          source /root/.bashrc
+          . /root/.bashrc 2>/dev/null || true
+          . /github/home/.bashrc 2>/dev/null || true
 
           # Install cross-compilation tools
           apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
