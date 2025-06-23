@@ -1,0 +1,16 @@
+services:
+  tauri-dev:
+    platform: linux/arm64
+    # 使用你已经配置好的镜像ID或名称
+    image: arm64v8/ubuntu:latest
+    container_name: tauri-development
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - RUST_BACKTRACE=1
+      - CARGO_HOME=/root/.cargo
+      - NVM_DIR=/root/.nvm    # 添加 NVM 环境变量
+    command: /bin/bash
+    tty: true
+    stdin_open: true
