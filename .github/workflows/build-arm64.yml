@@ -36,7 +36,8 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       - name: Install dependencies
-        run: pnpm install      - name: Set up cross-compilation
+        run: pnpm install
+      - name: Set up cross-compilation
         run: |
           # Add arm64 architecture and update package lists
           sudo dpkg --add-architecture arm64
