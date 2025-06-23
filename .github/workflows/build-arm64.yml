@@ -39,14 +39,19 @@ jobs:
         run: pnpm install
       - name: Set up cross-compilation
         run: |
-          # Configure apt for multi-arch support
+          # Clean up any existing arm64 configuration
           sudo dpkg --remove-architecture arm64 || true
-          sudo rm -f /etc/apt/sources.list.d/arm64.list || true# Add ARM64 repository
+          sudo rm -f /etc/apt/sources.list.d/arm64.list || true
+
+          # Add ARM64 architecture
+          sudo dpkg --add-architecture arm64
+
+          # Add ARM64 repository
           sudo tee /etc/apt/sources.list.d/arm64.list << EOF
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy-backports main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy-security main restricted universe multiverse
           EOF
           # Update apt to handle multiple architectures
           sudo dpkg --add-architecture arm64
