@@ -29,7 +29,6 @@ jobs:
           toolchain: stable
           target: aarch64-unknown-linux-gnu
           override: true
-
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -38,17 +37,25 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Set up cross-compilation
+        run: |
+          rustup target add aarch64-unknown-linux-gnu
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         with:
           tagName: v__VERSION__
           releaseName: "App v__VERSION__"
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: false
-          args: --target aarch64-unknown-linux-gnu
+          args: "--target aarch64-unknown-linux-gnu"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
