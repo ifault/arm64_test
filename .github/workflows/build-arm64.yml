@@ -57,9 +57,11 @@ jobs:
           echo "PKG_CONFIG_SYSROOT_DIR=/usr" >> $GITHUB_ENV
 
       - name: Install Node.js dependencies
+        shell: bash
         run: |
-          export SHELL=/bin/bash
           export PATH="/root/.local/share/pnpm:$PATH"
+          . /root/.bashrc 2>/dev/null || true
+          . /github/home/.bashrc 2>/dev/null || true
           pnpm install
 
       - name: Build Tauri
