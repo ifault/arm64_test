@@ -37,9 +37,7 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       - name: Install dependencies
-        run: pnpm install
-
-      - name: Build Tauri
+        run: pnpm install      - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,7 +47,7 @@ jobs:
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: false
-          target: aarch64-unknown-linux-gnu
+          args: --target aarch64-unknown-linux-gnu
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
