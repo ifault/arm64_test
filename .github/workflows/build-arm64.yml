@@ -72,12 +72,12 @@ jobs:
             if ! grep -q "\"appimage\"" src-tauri/tauri.conf.json; then
               echo "添加 appimage 到 targets..."
               sed -i 's/"targets": \[\([^]]*\)\]/"targets": [\1, "appimage"]/' src-tauri/tauri.conf.json
-            fi
-          else
+            fi          else
             # 如果没有 targets 字段，添加它到 bundle 配置中
             echo "添加 targets 字段..."
             sed -i '/"bundle": {/a \      "targets": ["deb", "appimage"],' src-tauri/tauri.conf.json
-          fi          echo "修改后的 tauri.conf.json:"
+          fi
+          echo "修改后的 tauri.conf.json:"
           cat src-tauri/tauri.conf.json
 
       - name: Build Tauri manually
@@ -135,7 +135,8 @@ jobs:
           cargo metadata --format-version=1 || echo "Cargo metadata 失败"
           RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
 
-          echo "====== Cargo 构建结束，检查状态 ======"          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"
+          echo "====== Cargo 构建结束，检查状态 ======"
+          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"
           cd ..
           echo "====== 尝试使用 Tauri 构建 ======"
           # 设置更多调试参数
