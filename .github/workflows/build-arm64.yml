@@ -58,16 +58,26 @@ jobs:
           # Add dependencies needed for AppImage building
           apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.0-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64 libsoup-3.0-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libglib2.0-dev:arm64 libssl-dev:arm64 libgdk-pixbuf2.0-dev:arm64 libatk1.0-dev:arm64 libpango1.0-dev:arm64 libasound2-dev:arm64 fuse:arm64 libfuse2:arm64
 
-          # Set cross-compilation environment
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          # Set cross-compilation environment          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
           echo "PKG_CONFIG_SYSROOT_DIR=/usr" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_SYSTEM_LIBS=1" >> $GITHUB_ENV
 
-      - name: Install Node.js dependencies
-        run: pnpm install
+      - name: Install Node.js dependencies and build frontend
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          . $HOME/.cargo/env
+
+          echo "Installing Node.js dependencies..."
+          pnpm install
+
+          echo "Building frontend..."
+          pnpm run build
+
+          echo "Checking if dist directory was created:"
+          ls -la dist/ || echo "dist directory not found"
 
       - name: Ensure AppImage target is enabled
         run: |
@@ -81,9 +91,9 @@ jobs:
             fi
           else
             # If no targets field, add it to the bundle config
-            echo "Adding targets field..."
-            sed -i '/"bundle": {/a \      "targets": ["deb", "appimage"],' src-tauri/tauri.conf.json
+            echo "Adding targets field..."            sed -i '/"bundle": {/a \      "targets": ["deb", "appimage"],' src-tauri/tauri.conf.json
           fi
+
           echo "Modified tauri.conf.json:"
           cat src-tauri/tauri.conf.json
 
@@ -92,6 +102,20 @@ jobs:
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
+
+          # Verify frontend build exists
+          echo "====== Verifying Frontend Build ======"
+          if [ ! -d "dist" ]; then
+            echo "Error: dist directory not found! Frontend build failed."
+            echo "Attempting to build frontend again..."
+            pnpm run build || {
+              echo "Frontend build failed!"
+              exit 1
+            }
+          else
+            echo "✓ Frontend dist directory found"
+            ls -la dist/
+          fi
 
           # Check environment
           ls -la # List current directory contents
@@ -103,21 +127,23 @@ jobs:
           cat src-tauri/tauri.conf.json
 
           # Verify AppImage target is enabled
-          echo "====== Verifying AppImage Target ======"
-          if grep -q "\"appimage\"" src-tauri/tauri.conf.json; then
+          echo "====== Verifying AppImage Target ======"          if grep -q "\"appimage\"" src-tauri/tauri.conf.json; then
             echo "✓ AppImage target is already configured in tauri.conf.json"
           else
             echo "! AppImage target not found in tauri.conf.json, adding it..."
             sed -i 's/"targets": \[\([^]]*\)\]/"targets": [\1, "appimage"]/' src-tauri/tauri.conf.json
-          fi          # Check if required packages are installed
+          fi
+
+          # Check if required packages are installed
           echo "====== Checking Key Dependencies ======"
           dpkg -l | grep libsoup
           dpkg -l | grep javascriptcore
           dpkg -l | grep webkit
-          dpkg -l | grep fuse
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup* || true
+          dpkg -l | grep fuse          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup* || true
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/javascriptcore* || true
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true          # Check if pkg-config can find required libraries
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true
+
+          # Check if pkg-config can find required libraries
           echo "====== Checking pkg-config ======"
           pkg-config --list-all | grep javascriptcore || echo "No javascriptcore found"
           pkg-config --list-all | grep webkit || echo "No webkit found"
@@ -130,13 +156,14 @@ jobs:
           PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists libsoup-3.0 && echo "✓ libsoup-3.0 found for ARM64" || echo "✗ libsoup-3.0 not found for ARM64"
           PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists javascriptcoregtk-4.1 && echo "✓ javascriptcoregtk-4.1 found for ARM64" || echo "✗ javascriptcoregtk-4.1 not found for ARM64"
 
-          # Set environment variables
-          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          # Set environment variables          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export PKG_CONFIG_ALLOW_CROSS=1
           export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
           export PKG_CONFIG_SYSROOT_DIR=/usr
           export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
-          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1          # Try building directly with Cargo
+          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
+
+          # Try building directly with Cargo
           echo "====== Starting Cargo Build ======"
           echo "Current directory: $(pwd)"
           ls -la
@@ -174,9 +201,10 @@ jobs:
 
           if [ $? -ne 0 ]; then
             echo "Cargo build failed, showing error details:"
-            tail -100 build.log || echo "No build log found"
-            exit 1
-          fi          echo "====== Cargo Build Finished, Checking Status ======"
+            tail -100 build.log || echo "No build log found"            exit 1
+          fi
+
+          echo "====== Cargo Build Finished, Checking Status ======"
           ls -la target/aarch64-unknown-linux-gnu/release/ || echo "No build artifacts found"
           cd ..
 
@@ -194,7 +222,9 @@ jobs:
             exit 1
           fi
 
-          echo "====== Checking Build Artifacts ======"          echo "DEB package:"
+          echo "====== Checking Build Artifacts ======"
+
+          echo "DEB package:"
           find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -type f -name "*.deb" -ls || echo "No DEB package found"
 
           echo "AppImage package:"
