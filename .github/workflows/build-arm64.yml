@@ -3,8 +3,8 @@ name: Build ARM64 Release
 on:
   push:
     branches:
-      - main  # Change to master or other branch name as needed
-  workflow_dispatch:  # Keep manual trigger option
+      - main  # 也可以换成 master 或其他你想要触发的分支名
+  workflow_dispatch:  # 保留手动触发选项
 
 jobs:
   build-linux-arm64:
@@ -24,23 +24,17 @@ jobs:
 
           # Install basic build tools
           apt-get update
-          apt-get install -y build-essential nodejs git pkg-config cmake          # Install Rust
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          apt-get install -y build-essential nodejs git pkg-config cmake
 
-          # Source Rust environment properly
+          # Install Rust
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
-
-          # Verify Rust installation
-          rustc --version
-          cargo --version
-
-          # Add ARM64 target
           rustup target add aarch64-unknown-linux-gnu
 
           # Install pnpm globally
           npm install -g pnpm
-          pnpm --version # Verify installation succeeded
+          pnpm --version # 验证安装成功
 
           # Install cross-compilation tools
           apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
@@ -55,211 +49,80 @@ jobs:
           EOF
 
           apt-get update
-          # Add dependencies needed for AppImage building
-          apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.0-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64 libsoup-3.0-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libglib2.0-dev:arm64 libssl-dev:arm64 libgdk-pixbuf2.0-dev:arm64 libatk1.0-dev:arm64 libpango1.0-dev:arm64 libasound2-dev:arm64 fuse:arm64 libfuse2:arm64
+          apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.0-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64 libsoup-3.0-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libglib2.0-dev:arm64 libssl-dev:arm64 libgdk-pixbuf2.0-dev:arm64 libatk1.0-dev:arm64 libpango1.0-dev:arm64 libasound2-dev:arm64
 
-          # Set cross-compilation environment          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          # Set cross-compilation environment
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
           echo "PKG_CONFIG_SYSROOT_DIR=/usr" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_SYSTEM_LIBS=1" >> $GITHUB_ENV
 
-      - name: Install Node.js dependencies and build frontend
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          . $HOME/.cargo/env
-
-          echo "Installing Node.js dependencies..."
-          pnpm install
-
-          echo "Building frontend..."
-          pnpm run build
-
-          echo "Checking if dist directory was created:"
-          ls -la dist/ || echo "dist directory not found"
-
+      - name: Install Node.js dependencies
+        run: pnpm install
       - name: Ensure AppImage target is enabled
         run: |
-          echo "Checking tauri.conf.json and ensuring AppImage target is enabled..."
-          # Check if tauri.conf.json contains targets array
-          if grep -q "\"targets\":" src-tauri/tauri.conf.json; then
-            # If targets exists but doesn't contain appimage
-            if ! grep -q "\"appimage\"" src-tauri/tauri.conf.json; then
-              echo "Adding appimage to targets..."
-              sed -i 's/"targets": \[\([^]]*\)\]/"targets": [\1, "appimage"]/' src-tauri/tauri.conf.json
+          if ! grep -q "appimage" src-tauri/tauri.conf.json; then
+            echo "Enabling AppImage target in Tauri config..."
+            sed -i 's/"targets": \["deb"\]/"targets": ["deb", "appimage"]/g' src-tauri/tauri.conf.json
+            # 如果没有targets字段，则添加它
+            if ! grep -q "targets" src-tauri/tauri.conf.json; then
+              sed -i '/"bundle": {/a \      "targets": ["deb", "appimage"],' src-tauri/tauri.conf.json
             fi
-          else
-            # If no targets field, add it to the bundle config
-            echo "Adding targets field..."            sed -i '/"bundle": {/a \      "targets": ["deb", "appimage"],' src-tauri/tauri.conf.json
+            cat src-tauri/tauri.conf.json
           fi
-
-          echo "Modified tauri.conf.json:"
-          cat src-tauri/tauri.conf.json
-
       - name: Build Tauri manually
         shell: bash
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
 
-          # Verify frontend build exists
-          echo "====== Verifying Frontend Build ======"
-          if [ ! -d "dist" ]; then
-            echo "Error: dist directory not found! Frontend build failed."
-            echo "Attempting to build frontend again..."
-            pnpm run build || {
-              echo "Frontend build failed!"
-              exit 1
-            }
-          else
-            echo "✓ Frontend dist directory found"
-            ls -la dist/
-          fi
-
-          # Check environment
-          ls -la # List current directory contents
-          ls -la src-tauri # Check src-tauri directory contents
-          cargo --version # Verify cargo is available
-
-          # Check Tauri config file
-          echo "====== Tauri Configuration Content ======"
+          # 检查环境
+          ls -la # 列出当前目录内容
+          ls -la src-tauri # 检查 src-tauri 目录内容
+          cargo --version # 验证 cargo 可用          # 检查 Tauri 配置文件
+          echo "====== Tauri 配置内容 ======"
           cat src-tauri/tauri.conf.json
 
-          # Verify AppImage target is enabled
-          echo "====== Verifying AppImage Target ======"          if grep -q "\"appimage\"" src-tauri/tauri.conf.json; then
-            echo "✓ AppImage target is already configured in tauri.conf.json"
-          else
-            echo "! AppImage target not found in tauri.conf.json, adding it..."
-            sed -i 's/"targets": \[\([^]]*\)\]/"targets": [\1, "appimage"]/' src-tauri/tauri.conf.json
-          fi
-
-          # Check if required packages are installed
-          echo "====== Checking Key Dependencies ======"
+          # 检查相关包是否已安装
           dpkg -l | grep libsoup
           dpkg -l | grep javascriptcore
           dpkg -l | grep webkit
-          dpkg -l | grep fuse          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup* || true
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup* || true
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/javascriptcore* || true
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true
 
-          # Check if pkg-config can find required libraries
-          echo "====== Checking pkg-config ======"
-          pkg-config --list-all | grep javascriptcore || echo "No javascriptcore found"
-          pkg-config --list-all | grep webkit || echo "No webkit found"
-          pkg-config --list-all | grep soup || echo "No soup found"
-          pkg-config --list-all | grep fuse || echo "No fuse found"
+          # 检查pkg-config能否找到需要的库          pkg-config --list-all | grep javascriptcore
+          pkg-config --list-all | grep webkit
+          pkg-config --list-all | grep soup
 
-          # Test specific pkg-config queries for ARM64
-          echo "====== Testing pkg-config queries for ARM64 ======"
-          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists webkit2gtk-4.1 && echo "✓ webkit2gtk-4.1 found for ARM64" || echo "✗ webkit2gtk-4.1 not found for ARM64"
-          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists libsoup-3.0 && echo "✓ libsoup-3.0 found for ARM64" || echo "✗ libsoup-3.0 not found for ARM64"
-          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists javascriptcoregtk-4.1 && echo "✓ javascriptcoregtk-4.1 found for ARM64" || echo "✗ javascriptcoregtk-4.1 not found for ARM64"
-
-          # Set environment variables          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          # 设置环境变量
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export PKG_CONFIG_ALLOW_CROSS=1
           export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
           export PKG_CONFIG_SYSROOT_DIR=/usr
           export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
           export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
 
-          # Try building directly with Cargo
-          echo "====== Starting Cargo Build ======"
-          echo "Current directory: $(pwd)"
-          ls -la
-
-          # Check if src-tauri directory exists
-          if [ ! -d "src-tauri" ]; then
-            echo "Error: src-tauri directory not found!"
-            exit 1
-          fi
-
+          # 尝试直接使用 Cargo 构建
           cd src-tauri
-          echo "Changed to src-tauri directory: $(pwd)"
-          ls -la
+          echo "====== 开始 Cargo 构建 ======"
+          cargo metadata --format-version=1 || echo "Cargo metadata 失败"
+          RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
 
-          # Check if Cargo.toml exists and show its content
-          echo "Checking Cargo.toml:"
-          if [ -f "Cargo.toml" ]; then
-            cat Cargo.toml
-          else
-            echo "Cargo.toml not found in $(pwd)"
-            exit 1
-          fi
+          echo "====== Cargo 构建结束，检查状态 ======"
+          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"
 
-          # Try cargo metadata first to validate the project
-          echo "Running cargo metadata..."
-          cargo metadata --format-version=1 2>&1 | head -20 || echo "Cargo metadata failed"
-
-          # Try a simple cargo check first
-          echo "Running cargo check..."
-          RUST_BACKTRACE=1 cargo check --target aarch64-unknown-linux-gnu --verbose 2>&1 | head -50 || echo "Cargo check failed"
-
-          # If check succeeds, try the build
-          echo "Running cargo build..."
-          RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu 2>&1 | tee build.log
-
-          if [ $? -ne 0 ]; then
-            echo "Cargo build failed, showing error details:"
-            tail -100 build.log || echo "No build log found"            exit 1
-          fi
-
-          echo "====== Cargo Build Finished, Checking Status ======"
-          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "No build artifacts found"
           cd ..
+          echo "====== 尝试使用 Tauri 构建 ======"
+          # 设置更多调试参数
+          RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose || echo "Tauri 构建失败，返回码: $?"
 
-          echo "====== Attempting Tauri Build ======"
-          # Set additional debug parameters and capture output
-          echo "Starting Tauri build with verbose output..."
-          RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose 2>&1 | tee tauri-build.log
-
-          if [ $? -ne 0 ]; then
-            echo "Tauri build failed, showing error details:"
-            echo "Last 100 lines of tauri build log:"
-            tail -100 tauri-build.log || echo "No tauri build log found"
-            echo "Checking for specific error patterns:"
-            grep -i "error\|failed\|panic" tauri-build.log | tail -20 || echo "No specific errors found in log"
-            exit 1
-          fi
-
-          echo "====== Checking Build Artifacts ======"
-
-          echo "DEB package:"
-          find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -type f -name "*.deb" -ls || echo "No DEB package found"
-
-          echo "AppImage package:"
-          find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage -type f -name "*.AppImage" -ls || echo "No AppImage package found"
-
-          # Check if there are any AppImage-related errors in the build logs
-          echo "====== Checking AppImage Build Logs ======"
-          grep -i appimage target/aarch64-unknown-linux-gnu/release/build.log || echo "No AppImage build logs found"
-
-      - name: Upload DEB artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: linux-arm64-deb-packages
-          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb
-          if-no-files-found: warn
-      - name: Upload AppImage artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux-arm64-appimage-packages
-          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
-          if-no-files-found: warn
-
-      - name: Capture build logs on failure
-        if: failure()
-        run: |
-          echo "====== Build Failed, Collecting Detailed Logs ======"
-          echo "Checking Cargo error logs:"
-          find src-tauri/target -name "*.log" -type f -exec ls -la {} \; || true
-          find src-tauri/target -name "*.log" -type f -exec cat {} \; || true
-
-          echo "Checking system dependencies:"
-          dpkg -l | grep -E 'webkit|gtk|glib|libfuse' || true
-
-          echo "Checking cross-compilation environment:"
-          ls -la /usr/aarch64-linux-gnu/ || true
-          ls -la /usr/lib/aarch64-linux-gnu/ || true
+          name: linux-arm64-artifacts
+          path: |
+            src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb
+            src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
