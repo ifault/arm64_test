@@ -49,8 +49,9 @@ jobs:
           EOF
 
           apt-get update
+
           # 添加 AppImage 构建所需的依赖
-          apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.0-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64 libsoup-3.0-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libglib2.0-dev:arm64 libssl-dev:arm64 libgdk-pixbuf2.0-dev:arm64 libatk1.0-dev:arm64 libpango1.0-dev:arm64 libasound2-dev:arm64 fuse:arm64 libfuse2:arm64
+          apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.0-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64 libsoup-3.0-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libglib2.0-dev:arm64 libssl-dev:arm64 libgdk-pixbuf2.0-dev:arm64 libatk1.0-dev:arm64 libpango1.0-dev:arm64 libasound2-dev:arm64 fuse:arm64 libfuse2:arm64 squashfs-tools:arm64
 
           # Set cross-compilation environment
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
@@ -77,7 +78,8 @@ jobs:
             # 如果没有 targets 字段，添加它到 bundle 配置中
             echo "添加 targets 字段..."
             sed -i '/"bundle": {/a \      "targets": ["deb", "appimage"],' src-tauri/tauri.conf.json
-          fi          echo "修改后的 tauri.conf.json:"
+          fi
+          echo "修改后的 tauri.conf.json:"
           cat src-tauri/tauri.conf.json
 
       - name: Build Tauri manually
@@ -136,7 +138,9 @@ jobs:
           RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
 
           echo "====== Cargo 构建结束，检查状态 ======"
-          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"          cd ..
+          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"
+
+          cd ..
           echo "====== 尝试使用 Tauri 构建 ======"
           # 设置更多调试参数
           RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose || echo "Tauri 构建失败，返回码: $?"
@@ -150,7 +154,9 @@ jobs:
 
           # 检查构建日志中是否有 AppImage 相关错误
           echo "====== 检查 AppImage 构建日志 ======"
-          grep -i appimage target/aarch64-unknown-linux-gnu/release/build.log || echo "未找到 AppImage 构建日志"      - name: Upload DEB artifacts
+          grep -i appimage src-tauri/target/aarch64-unknown-linux-gnu/release/build.log || echo "未找到 AppImage 构建日志"
+
+      - name: Upload DEB artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
