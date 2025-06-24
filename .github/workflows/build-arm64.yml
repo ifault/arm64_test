@@ -135,8 +135,8 @@ jobs:
           cargo metadata --format-version=1 || echo "Cargo metadata 失败"
           RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
 
-          echo "====== Cargo 构建结束，检查状态 ======"
-          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"          cd ..
+          echo "====== Cargo 构建结束，检查状态 ======"          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"
+          cd ..
           echo "====== 尝试使用 Tauri 构建 ======"
           # 设置更多调试参数
           RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose || echo "Tauri 构建失败，返回码: $?"
@@ -150,7 +150,9 @@ jobs:
 
           # 检查构建日志中是否有 AppImage 相关错误
           echo "====== 检查 AppImage 构建日志 ======"
-          grep -i appimage target/aarch64-unknown-linux-gnu/release/build.log || echo "未找到 AppImage 构建日志"      - name: Upload DEB artifacts
+          grep -i appimage target/aarch64-unknown-linux-gnu/release/build.log || echo "未找到 AppImage 构建日志"
+
+      - name: Upload DEB artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -165,3 +167,18 @@ jobs:
           name: linux-arm64-appimage-packages
           path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
           if-no-files-found: warn
+
+      - name: Capture build logs on failure
+        if: failure()
+        run: |
+          echo "====== 构建失败，收集详细日志 ======"
+          echo "检查 Cargo 错误日志:"
+          find src-tauri/target -name "*.log" -type f -exec ls -la {} \; || true
+          find src-tauri/target -name "*.log" -type f -exec cat {} \; || true
+
+          echo "检查系统依赖:"
+          dpkg -l | grep -E 'webkit|gtk|glib|libfuse' || true
+
+          echo "检查交叉编译环境:"
+          ls -la /usr/aarch64-linux-gnu/ || true
+          ls -la /usr/lib/aarch64-linux-gnu/ || true
