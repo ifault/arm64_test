@@ -68,13 +68,14 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
 
-          # 检查环境          ls -la # 列出当前目录内容
+          # 检查环境
+          ls -la # 列出当前目录内容
           ls -la src-tauri # 检查 src-tauri 目录内容
-          cargo --version # 验证 cargo 可用
-
-          # 检查 Tauri 配置文件
+          cargo --version # 验证 cargo 可用          # 检查 Tauri 配置文件
           echo "====== Tauri 配置内容 ======"
-          cat src-tauri/tauri.conf.json# 检查相关包是否已安装
+          cat src-tauri/tauri.conf.json
+
+          # 检查相关包是否已安装
           dpkg -l | grep libsoup
           dpkg -l | grep javascriptcore
           dpkg -l | grep webkit
@@ -82,10 +83,11 @@ jobs:
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/javascriptcore* || true
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true
 
-          # 检查pkg-config能否找到需要的库
-          pkg-config --list-all | grep javascriptcore
+          # 检查pkg-config能否找到需要的库          pkg-config --list-all | grep javascriptcore
           pkg-config --list-all | grep webkit
-          pkg-config --list-all | grep soup          # 设置环境变量
+          pkg-config --list-all | grep soup
+
+          # 设置环境变量
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export PKG_CONFIG_ALLOW_CROSS=1
           export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
@@ -93,7 +95,8 @@ jobs:
           export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
           export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
 
-          # 尝试直接使用 Cargo 构建          cd src-tauri
+          # 尝试直接使用 Cargo 构建
+          cd src-tauri
           echo "====== 开始 Cargo 构建 ======"
           cargo metadata --format-version=1 || echo "Cargo metadata 失败"
           RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
