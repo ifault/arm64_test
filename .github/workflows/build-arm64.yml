@@ -3,8 +3,8 @@ name: Build ARM64 Release
 on:
   push:
     branches:
-      - main  # 也可以换成 master 或其他你想要触发的分支名
-  workflow_dispatch:  # 保留手动触发选项
+      - main  # Change to master or other branch name as needed
+  workflow_dispatch:  # Keep manual trigger option
 
 jobs:
   build-linux-arm64:
@@ -32,9 +32,8 @@ jobs:
           . $HOME/.cargo/env
           rustup target add aarch64-unknown-linux-gnu
 
-          # Install pnpm globally
-          npm install -g pnpm
-          pnpm --version # 验证安装成功
+          # Install pnpm globally          npm install -g pnpm
+          pnpm --version # Verify installation succeeded
 
           # Install cross-compilation tools
           apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
@@ -49,14 +48,15 @@ jobs:
           EOF
 
           apt-get update
-          # 添加 AppImage 构建所需的依赖
+          # Add dependencies needed for AppImage building
           apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.0-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64 libsoup-3.0-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libglib2.0-dev:arm64 libssl-dev:arm64 libgdk-pixbuf2.0-dev:arm64 libatk1.0-dev:arm64 libpango1.0-dev:arm64 libasound2-dev:arm64 fuse:arm64 libfuse2:arm64
 
           # Set cross-compilation environment
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
-          echo "PKG_CONFIG_SYSROOT_DIR=/usr" >> $GITHUB_ENV          echo "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_SYSROOT_DIR=/usr" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_SYSTEM_LIBS=1" >> $GITHUB_ENV
 
       - name: Install Node.js dependencies
@@ -86,7 +86,8 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
 
-          # 检查环境          ls -la # List current directory contents
+          # Check environment
+          ls -la # List current directory contents
           ls -la src-tauri # Check src-tauri directory contents
           cargo --version # Verify cargo is available
 
@@ -124,10 +125,9 @@ jobs:
           export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
           export PKG_CONFIG_SYSROOT_DIR=/usr
           export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
-          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
-
-          # 尝试直接使用 Cargo 构建
-          cd src-tauri          echo "====== Starting Cargo Build ======"
+          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1          # Try building directly with Cargo
+          cd src-tauri
+          echo "====== Starting Cargo Build ======"
           cargo metadata --format-version=1 || echo "Cargo metadata failed"
           RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
 
@@ -138,9 +138,10 @@ jobs:
           # Set additional debug parameters
           RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose || echo "Tauri build failed, exit code: $?"
 
-          echo "====== Checking Build Artifacts ======"
-          echo "DEB package:"
-          find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -type f -name "*.deb" -ls || echo "No DEB package found"          echo "AppImage package:"
+          echo "====== Checking Build Artifacts ======"          echo "DEB package:"
+          find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -type f -name "*.deb" -ls || echo "No DEB package found"
+
+          echo "AppImage package:"
           find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage -type f -name "*.AppImage" -ls || echo "No AppImage package found"
 
           # Check if there are any AppImage-related errors in the build logs
@@ -166,7 +167,8 @@ jobs:
       - name: Capture build logs on failure
         if: failure()
         run: |
-          echo "====== 构建失败，收集详细日志 ======"          echo "Checking Cargo error logs:"
+          echo "====== Build Failed, Collecting Detailed Logs ======"
+          echo "Checking Cargo error logs:"
           find src-tauri/target -name "*.log" -type f -exec ls -la {} \; || true
           find src-tauri/target -name "*.log" -type f -exec cat {} \; || true
 
