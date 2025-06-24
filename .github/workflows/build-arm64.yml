@@ -117,14 +117,18 @@ jobs:
           dpkg -l | grep fuse
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup* || true
           ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/javascriptcore* || true
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true
-
-          # Check if pkg-config can find required libraries
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true          # Check if pkg-config can find required libraries
           echo "====== Checking pkg-config ======"
-          pkg-config --list-all | grep javascriptcore
-          pkg-config --list-all | grep webkit
-          pkg-config --list-all | grep soup
-          pkg-config --list-all | grep fuse
+          pkg-config --list-all | grep javascriptcore || echo "No javascriptcore found"
+          pkg-config --list-all | grep webkit || echo "No webkit found"
+          pkg-config --list-all | grep soup || echo "No soup found"
+          pkg-config --list-all | grep fuse || echo "No fuse found"
+
+          # Test specific pkg-config queries for ARM64
+          echo "====== Testing pkg-config queries for ARM64 ======"
+          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists webkit2gtk-4.1 && echo "✓ webkit2gtk-4.1 found for ARM64" || echo "✗ webkit2gtk-4.1 not found for ARM64"
+          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists libsoup-3.0 && echo "✓ libsoup-3.0 found for ARM64" || echo "✗ libsoup-3.0 not found for ARM64"
+          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig pkg-config --exists javascriptcoregtk-4.1 && echo "✓ javascriptcoregtk-4.1 found for ARM64" || echo "✗ javascriptcoregtk-4.1 not found for ARM64"
 
           # Set environment variables
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
@@ -132,18 +136,44 @@ jobs:
           export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
           export PKG_CONFIG_SYSROOT_DIR=/usr
           export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
-          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1          # Try building directly with Cargo
-          cd src-tauri
-          echo "====== Starting Cargo Build ======"
-          cargo metadata --format-version=1 || echo "Cargo metadata failed"
-          RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
+          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
 
-          echo "====== Cargo Build Finished, Checking Status ======"
+          # Try building directly with Cargo          cd src-tauri
+          echo "====== Starting Cargo Build ======"
+
+          # Check if Cargo.toml exists and show its content
+          echo "Checking Cargo.toml:"
+          cat Cargo.toml || echo "Cargo.toml not found"
+
+          # Try cargo metadata first to validate the project
+          echo "Running cargo metadata..."
+          cargo metadata --format-version=1 2>&1 | head -20 || echo "Cargo metadata failed"
+
+          # Try a simple cargo check first
+          echo "Running cargo check..."
+          RUST_BACKTRACE=1 cargo check --target aarch64-unknown-linux-gnu --verbose 2>&1 | head -50 || echo "Cargo check failed"
+
+          # If check succeeds, try the build
+          echo "Running cargo build..."
+          RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu 2>&1 | tee build.log || {
+            echo "Cargo build failed, showing error details:"
+            tail -100 build.log || echo "No build log found"
+            exit 1
+          }          echo "====== Cargo Build Finished, Checking Status ======"
           ls -la target/aarch64-unknown-linux-gnu/release/ || echo "No build artifacts found"
           cd ..
+
           echo "====== Attempting Tauri Build ======"
-          # Set additional debug parameters
-          RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose || echo "Tauri build failed, exit code: $?"
+          # Set additional debug parameters and capture output
+          echo "Starting Tauri build with verbose output..."
+          RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose 2>&1 | tee tauri-build.log || {
+            echo "Tauri build failed, showing error details:"
+            echo "Last 100 lines of tauri build log:"
+            tail -100 tauri-build.log || echo "No tauri build log found"
+            echo "Checking for specific error patterns:"
+            grep -i "error\|failed\|panic" tauri-build.log | tail -20 || echo "No specific errors found in log"
+            exit 1
+          }
 
           echo "====== Checking Build Artifacts ======"          echo "DEB package:"
           find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -type f -name "*.deb" -ls || echo "No DEB package found"
