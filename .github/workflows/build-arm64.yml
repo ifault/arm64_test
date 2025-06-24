@@ -24,15 +24,22 @@ jobs:
 
           # Install basic build tools
           apt-get update
-          apt-get install -y build-essential nodejs git pkg-config cmake
-
-          # Install Rust
+          apt-get install -y build-essential nodejs git pkg-config cmake          # Install Rust
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+          # Source Rust environment properly
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
+
+          # Verify Rust installation
+          rustc --version
+          cargo --version
+
+          # Add ARM64 target
           rustup target add aarch64-unknown-linux-gnu
 
-          # Install pnpm globally          npm install -g pnpm
+          # Install pnpm globally
+          npm install -g pnpm
           pnpm --version # Verify installation succeeded
 
           # Install cross-compilation tools
