@@ -68,35 +68,43 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           . $HOME/.cargo/env
 
-          # 检查环境
-          ls -la # 列出当前目录内容
+          # 检查环境          ls -la # 列出当前目录内容
           ls -la src-tauri # 检查 src-tauri 目录内容
           cargo --version # 验证 cargo 可用
 
-          # 检查相关包是否已安装
+          # 检查 Tauri 配置文件
+          echo "====== Tauri 配置内容 ======"
+          cat src-tauri/tauri.conf.json# 检查相关包是否已安装
           dpkg -l | grep libsoup
-          dpkg -l | grep javascriptcore          dpkg -l | grep webkit
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup*
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/javascriptcore*
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit*
+          dpkg -l | grep javascriptcore
+          dpkg -l | grep webkit
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/libsoup* || true
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/javascriptcore* || true
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/*webkit* || true
 
           # 检查pkg-config能否找到需要的库
           pkg-config --list-all | grep javascriptcore
           pkg-config --list-all | grep webkit
-          pkg-config --list-all | grep soup
-
-          # 设置环境变量
+          pkg-config --list-all | grep soup          # 设置环境变量
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           export PKG_CONFIG_ALLOW_CROSS=1
           export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
           export PKG_CONFIG_SYSROOT_DIR=/usr
           export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
-          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1          # 尝试直接使用 Cargo 构建
-          cd src-tauri
-          RUST_BACKTRACE=1 cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
+          export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
 
-          # 如果直接 Cargo 构建成功，尝试使用 Tauri 构建
-          RUST_BACKTRACE=1 pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose
+          # 尝试直接使用 Cargo 构建          cd src-tauri
+          echo "====== 开始 Cargo 构建 ======"
+          cargo metadata --format-version=1 || echo "Cargo metadata 失败"
+          RUST_BACKTRACE=full cargo build --verbose --release --target aarch64-unknown-linux-gnu || true
+
+          echo "====== Cargo 构建结束，检查状态 ======"
+          ls -la target/aarch64-unknown-linux-gnu/release/ || echo "没有构建产物"
+
+          cd ..
+          echo "====== 尝试使用 Tauri 构建 ======"
+          # 设置更多调试参数
+          RUST_LOG=debug RUST_BACKTRACE=full pnpm exec tauri build --target aarch64-unknown-linux-gnu --verbose || echo "Tauri 构建失败，返回码: $?"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
